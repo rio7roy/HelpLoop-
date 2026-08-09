@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HelpLoop — Ask for a hand, or lend one</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,500;1,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4F6F1;
+    --card:#FFFFFF;
+    --ink:#232B24;
+    --ink-soft:#5B6459;
+    --forest:#1F4B3F;
+    --forest-dark:#16362D;
+    --gold:#C9922E;
+    --gold-soft:#F3E3C5;
+    --ember:#B8483A;
+    --ember-soft:#F6DEDA;
+    --line:#E2E6DD;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(35,43,36,.06), 0 10px 26px -14px rgba(35,43,36,.28);
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif; margin:0;}
+  button{font-family:inherit; cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+  a{color:inherit;}
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:rgba(244,246,241,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .wordmark{display:flex; align-items:center; gap:8px;}
+  .wordmark .dot{width:10px;height:10px;border-radius:50%;background:var(--forest);}
+  .wordmark span{font-family:'Fraunces',serif; font-weight:700; font-size:20px; letter-spacing:-.01em;}
+  .impact-pill{
+    display:flex; align-items:center; gap:6px;
+    background:var(--forest); color:#fff;
+    border-radius:999px; padding:6px 12px;
+    font-size:12px; white-space:nowrap;
+  }
+  .impact-pill b{font-family:'Fraunces',serif; font-style:italic; font-weight:700; font-size:14px;}
+
+  /* ---------- hero ---------- */
+  .hero{max-width:720px; margin:0 auto; padding:28px 20px 6px; text-align:left; animation:riseIn .5s ease both;}
+  .hero p{color:var(--ink-soft); margin:8px 0 0; font-size:15px; line-height:1.5; max-width:46ch;}
+
+  /* ---------- controls ---------- */
+  .controls{max-width:960px; margin:22px auto 0; padding:0 20px;}
+  .tabs{
+    display:grid; grid-template-columns:1fr 1fr; gap:6px;
+    background:#E9ECE3; border-radius:12px; padding:5px;
+  }
+  .tabs button{
+    border:0; background:transparent; border-radius:9px;
+    padding:11px 10px; font-weight:600; font-size:14.5px; color:var(--ink-soft);
+    transition:background .18s ease, color .18s ease, box-shadow .18s ease;
+  }
+  .tabs button.active{background:var(--card); color:var(--ink); box-shadow:var(--shadow);}
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:14px 2px 4px; scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; border:1px solid var(--line); background:var(--card);
+    border-radius:999px; padding:8px 14px; font-size:13px; font-weight:500; color:var(--ink-soft);
+    white-space:nowrap; transition:all .15s ease;
+  }
+  .chip.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  /* ---------- board ---------- */
+  .board-head{max-width:960px; margin:18px auto 0; padding:0 22px; display:flex; align-items:baseline; justify-content:space-between;}
+  .board-head h2{font-size:17px; font-weight:600;}
+  .board-head .count{font-size:12px; color:var(--ink-soft);}
+  .board{
+    max-width:960px; margin:14px auto 0; padding:6px 20px 20px;
+    display:grid; grid-template-columns:1fr; gap:16px;
+  }
+  @media(min-width:640px){ .board{grid-template-columns:1fr 1fr;} }
+  @media(min-width:960px){ .board{grid-template-columns:1fr 1fr 1fr;} }
+
+  .empty{
+    grid-column:1/-1; text-align:center; padding:52px 20px; color:var(--ink-soft);
+    border:1.5px dashed var(--line); border-radius:var(--radius);
+  }
+  .empty strong{display:block; color:var(--ink); font-family:'Fraunces',serif; font-size:18px; margin-bottom:6px; font-weight:600;}
+
+  .card{
+    position:relative; background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius); padding:22px 17px 16px; box-shadow:var(--shadow);
+    animation:pinIn .38s cubic-bezier(.2,.8,.3,1) both;
+  }
+  .card.resolved{opacity:.6;}
+  .card::before{
+    content:attr(data-emoji);
+    position:absolute; top:-13px; left:16px; width:32px; height:32px;
+    border-radius:8px; background:var(--tab-color, var(--forest));
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+    box-shadow:0 5px 12px -5px rgba(0,0,0,.4); transform:rotate(-5deg);
+  }
+  .card-top{display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
+  .type-badge{
+    font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;
+    padding:3px 8px; border-radius:5px;
+  }
+  .type-badge.request{background:var(--gold-soft); color:#7A5A18;}
+  .type-badge.offer{background:#DCEAE3; color:var(--forest-dark);}
+  .urgent{display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:600; color:var(--ember); text-transform:uppercase; letter-spacing:.04em;}
+  .urgent .pulse{width:7px; height:7px; border-radius:50%; background:var(--ember); animation:pulse 1.6s infinite;}
+  .card-title{font-size:16.5px; font-weight:600; line-height:1.35; font-family:'Inter',sans-serif; margin-bottom:4px;}
+  .card-details{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin:0 0 10px;}
+  .card-meta{font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-bottom:14px;}
+  .card-footer{display:flex; align-items:center; justify-content:space-between; gap:10px; border-top:1px solid var(--line); padding-top:12px;}
+  .posted-by{font-size:12.5px; color:var(--ink-soft); font-style:italic; font-family:'Fraunces',serif;}
+  .status-line{font-size:12px; color:var(--ink-soft);}
+  .status-line .resolve-link{color:var(--forest); font-weight:600; font-style:normal; cursor:pointer; text-decoration:underline; margin-left:6px;}
+  .card-action{
+    border:1.5px solid var(--forest); background:var(--forest); color:#fff;
+    border-radius:8px; padding:8px 13px; font-size:12.5px; font-weight:600; white-space:nowrap;
+    transition:transform .12s ease;
+  }
+  .card-action:active{transform:scale(.96);}
+  .resolved-tag{font-size:12.5px; color:var(--forest); font-weight:600;}
+
+  /* ---------- fab ---------- */
+  .fab{
+    position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom)); z-index:30;
+    background:var(--forest); color:#fff; border:0; border-radius:999px;
+    padding:15px 20px; font-size:14.5px; font-weight:600; box-shadow:0 10px 24px -8px rgba(31,75,63,.55);
+    display:flex; align-items:center; gap:7px;
+  }
+  .fab:active{transform:scale(.96);}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(23,28,20,.5); backdrop-filter:blur(2px);
+    display:none; align-items:flex-end; justify-content:center; z-index:50; padding:0;
+  }
+  .overlay.open{display:flex;}
+  @media(min-width:640px){ .overlay{align-items:center; padding:20px;} }
+  .modal{
+    background:var(--paper); width:100%; max-width:480px; max-height:92vh; overflow-y:auto;
+    border-radius:20px 20px 0 0; padding:22px 20px calc(24px + env(safe-area-inset-bottom));
+    animation:slideUp .28s ease both;
+  }
+  @media(min-width:640px){ .modal{border-radius:18px; animation:riseIn .22s ease both;} }
+  .modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+  .modal-head h3{font-size:19px; font-weight:700;}
+  .modal-close{background:none; border:0; font-size:22px; color:var(--ink-soft); line-height:1; padding:4px;}
+  .seg{display:grid; grid-template-columns:1fr 1fr; gap:6px; background:#E9ECE3; border-radius:10px; padding:4px; margin-bottom:16px;}
+  .seg button{border:0; background:transparent; border-radius:7px; padding:9px; font-weight:600; font-size:13.5px; color:var(--ink-soft);}
+  .seg button.active{background:var(--card); color:var(--ink); box-shadow:var(--shadow);}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:.03em;}
+  .field input, .field select, .field textarea{
+    width:100%; border:1.5px solid var(--line); background:var(--card); border-radius:9px;
+    padding:11px 12px; font-size:14.5px; color:var(--ink); outline:none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--forest);}
+  .field textarea{resize:vertical; min-height:64px;}
+  .field .hint{font-size:11.5px; color:var(--ink-soft); margin-top:5px; font-weight:400; text-transform:none; letter-spacing:0;}
+  .submit-btn{
+    width:100%; border:0; background:var(--forest); color:#fff; border-radius:10px;
+    padding:14px; font-size:15px; font-weight:700; margin-top:6px;
+  }
+  .submit-btn:active{transform:scale(.98);}
+  .error-text{color:var(--ember); font-size:12.5px; margin:-6px 0 12px; display:none;}
+  .error-text.show{display:block;}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(10px);
+    background:var(--ink); color:#fff; padding:11px 18px; border-radius:999px; font-size:13.5px;
+    opacity:0; pointer-events:none; transition:all .25s ease; z-index:60; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- keyframes ---------- */
+  @keyframes riseIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+  @keyframes slideUp{from{opacity:0; transform:translateY(24px);} to{opacity:1; transform:translateY(0);}}
+  @keyframes pinIn{from{opacity:0; transform:scale(.94) translateY(6px);} to{opacity:1; transform:scale(1) translateY(0);}}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+
+  @media(prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
+  }
+  :focus-visible{outline:2.5px solid var(--forest); outline-offset:2px;}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="wordmark"><span class="dot"></span><span>HelpLoop</span></div>
+    <div class="impact-pill">🌱 <b id="impactCount">0</b> neighbors helped</div>
+  </div>
+
+  <div class="hero">
+    <h1 style="font-size:26px; font-weight:700; letter-spacing:-.01em;">Ask your street for a hand, or lend one.</h1>
+    <p>A shared board for your neighborhood — no sign-up, no app to install. Post what you need or what you can give, and see it live.</p>
+  </div>
+
+  <div class="controls">
+    <div class="tabs">
+      <button id="tabRequest" class="active" onclick="setActiveTab('request')">Need help</button>
+      <button id="tabOffer" onclick="setActiveTab('offer')">Can help</button>
+    </div>
+    <div class="chips" id="chipRow"></div>
+  </div>
+
+  <div class="board-head">
+    <h2 id="boardTitle">Open requests</h2>
+    <span class="count" id="boardCount"></span>
+  </div>
+  <div class="board" id="board"></div>
+
+  <button class="fab" onclick="openPostModal()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>
+    Post
+  </button>
+
+  <!-- Post modal -->
+  <div class="overlay" id="postOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Post to the board</h3>
+        <button class="modal-close" onclick="closePostModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="seg">
+        <button id="segRequest" class="active" onclick="setModalType('request')">I need help</button>
+        <button id="segOffer" onclick="setModalType('offer')">I can help</button>
+      </div>
+      <form id="postForm" onsubmit="submitPost(event)">
+        <div class="field">
+          <label for="fTitle">What's this about</label>
+          <input id="fTitle" maxlength="80" placeholder="e.g. O+ blood needed by tomorrow" required>
+        </div>
+        <div class="field">
+          <label for="fDetails">Details <span style="text-transform:none; font-weight:400;">(optional)</span></label>
+          <textarea id="fDetails" maxlength="240" placeholder="Anything that helps a neighbor decide to respond"></textarea>
+        </div>
+        <div class="field">
+          <label for="fCategory">Category</label>
+          <select id="fCategory">
+            <option value="blood">🩸 Blood &amp; health</option>
+            <option value="food">🍲 Food</option>
+            <option value="tutoring">📚 Tutoring</option>
+            <option value="essentials">🧴 Essentials</option>
+            <option value="transport">🚗 Transport</option>
+            <option value="other">🤝 Other</option>
+          </select>
+        </div>
+        <div class="field" id="urgencyField">
+          <label for="fUrgency">Urgency</label>
+          <select id="fUrgency">
+            <option value="low">Low — whenever works</option>
+            <option value="medium" selected>Medium — this week</option>
+            <option value="high">High — today</option>
+            <option value="emergency">Emergency — right now</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fLocality">Area / locality</label>
+          <input id="fLocality" maxlength="40" placeholder="e.g. Sector 12, near the park" required>
+        </div>
+        <div class="field">
+          <label for="fContact">How to reach you <span style="text-transform:none; font-weight:400;">(optional)</span></label>
+          <input id="fContact" maxlength="60" placeholder="Phone, email, or leave blank">
+          <div class="hint">Only share what you're comfortable posting publicly.</div>
+        </div>
+        <div class="error-text" id="formError"></div>
+        <button type="submit" class="submit-btn" id="submitBtn">Post request</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Name modal -->
+  <div class="overlay" id="nameOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>What should neighbors call you?</h3>
+        <button class="modal-close" onclick="closeNameModal()" aria-label="Close">&times;</button>
+      </div>
+      <form onsubmit="submitName(event)">
+        <div class="field">
+          <label for="fName">First name</label>
+          <input id="fName" maxlength="24" placeholder="e.g. Priya" required autofocus>
+          <div class="hint">Shown next to what you post or help with. Saved on this device only.</div>
+        </div>
+        <button type="submit" class="submit-btn">Continue</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const STORAGE_KEY = 'helploop-posts';
+  const NAME_KEY = 'helploop-my-name';
+
+  const CATEGORIES = {
+    blood:      { label:'Blood & health', emoji:'🩸' },
+    food:       { label:'Food',           emoji:'🍲' },
+    tutoring:   { label:'Tutoring',       emoji:'📚' },
+    essentials: { label:'Essentials',     emoji:'🧴' },
+    transport:  { label:'Transport',      emoji:'🚗' },
+    other:      { label:'Other',          emoji:'🤝' }
+  };
+  const URGENCY_LABEL = { low:'Low', medium:'Medium', high:'High', emergency:'Emergency' };
+
+  let state = {
+    posts: [],
+    activeTab: 'request',
+    activeCategory: 'all',
+    myName: null,
+    pendingAction: null,
+    modalType: 'request'
+  };
+
+  /* ---------------- storage ---------------- */
+  function seedPosts(){
+    const now = Date.now();
+    const ago = (ms) => new Date(now - ms).toISOString();
+    return [
+      { id:'seed1', type:'request', category:'blood', title:'O+ blood needed for surgery tomorrow', details:'Family member scheduled for surgery at City Hospital. Any O+ donor nearby would be a huge help.', urgency:'emergency', locality:'Near City Hospital', contact:'', postedBy:'Aisha', status:'open', helper:null, createdAt:ago(18*60000), resolvedAt:null },
+      { id:'seed2', type:'offer', category:'tutoring', title:'Free evening maths tutoring, grades 6–10', details:'Free on weekday evenings, 6–8pm. Happy to help with school maths.', urgency:'low', locality:'Sector 12', contact:'', postedBy:'Rohan', status:'open', helper:null, createdAt:ago(3*3600000), resolvedAt:null },
+      { id:'seed3', type:'request', category:'food', title:'Groceries for an elderly couple who can\'t step out', details:'My neighbors are recovering from an illness and could use a hand with a weekly grocery run.', urgency:'medium', locality:'Lake View Colony', contact:'', postedBy:'Meera', status:'in-progress', helper:'Kabir', createdAt:ago(6*3600000), resolvedAt:null },
+      { id:'seed4', type:'offer', category:'essentials', title:'Spare winter blankets and warm clothes', details:'Clearing out storage — good condition, free to anyone who needs them.', urgency:'low', locality:'Green Park area', contact:'', postedBy:'Priya', status:'open', helper:null, createdAt:ago(9*3600000), resolvedAt:null },
+      { id:'seed5', type:'request', category:'transport', title:'Ride to the clinic for physio, twice a week', details:'Tuesday and Friday mornings. Happy to share petrol costs.', urgency:'low', locality:'MG Road', contact:'', postedBy:'Farah', status:'resolved', helper:'Dev', createdAt:ago(2*24*3600000), resolvedAt:ago(1*24*3600000) },
+      { id:'seed6', type:'offer', category:'other', title:'Free basic bike repairs on weekends', details:'Punctures, brakes, chains — bring it by on Saturday mornings.', urgency:'low', locality:'Sector 12', contact:'', postedBy:'Imran', status:'open', helper:null, createdAt:ago(30*3600000), resolvedAt:null }
+    ];
+  }
+
+  async function fetchPosts(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, true);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        if(Array.isArray(parsed)) return parsed;
+      }
+      throw new Error('no data');
+    }catch(err){
+      const seeded = seedPosts();
+      try{ await window.storage.set(STORAGE_KEY, JSON.stringify(seeded), true); }catch(e){}
+      return seeded;
+    }
+  }
+
+  async function persistPosts(posts){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(posts), true);
+      return true;
+    }catch(err){
+      showToast("Couldn't save that — check your connection and try again.");
+      return false;
+    }
+  }
+
+  async function fetchMyName(){
+    try{
+      const res = await window.storage.get(NAME_KEY, false);
+      if(res && res.value) return JSON.parse(res.value);
+      return null;
+    }catch(err){ return null; }
+  }
+
+  async function persistMyName(name){
+    try{ await window.storage.set(NAME_KEY, JSON.stringify(name), false); }catch(e){}
+  }
+
+  /* ---------------- render ---------------- */
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function relativeTime(iso){
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.round(diff/60000);
+    if(min < 1) return 'just now';
+    if(min < 60) return min + 'm ago';
+    const hr = Math.round(min/60);
+    if(hr < 24) return hr + 'h ago';
+    return Math.round(hr/24) + 'd ago';
+  }
+
+  function renderChips(){
+    const cats = [['all','All']].concat(Object.keys(CATEGORIES).map(k => [k, CATEGORIES[k].emoji + ' ' + CATEGORIES[k].label]));
+    document.getElementById('chipRow').innerHTML = cats.map(([key,label]) =>
+      `<button class="chip ${state.activeCategory===key?'active':''}" onclick="setActiveCategory('${key}')">${label}</button>`
+    ).join('');
+  }
+
+  function cardHtml(post){
+    const cat = CATEGORIES[post.category] || CATEGORIES.other;
+    const tabColor = post.type === 'request' ? 'var(--gold)' : 'var(--forest)';
+    const isUrgent = post.type === 'request' && (post.urgency === 'high' || post.urgency === 'emergency') && post.status === 'open';
+
+    let footer;
+    if(post.status === 'resolved'){
+      footer = `<span class="resolved-tag">✓ Resolved</span>`;
+    } else if(post.status === 'in-progress'){
+      footer = `<span class="status-line">🤝 ${escapeHtml(post.helper)} is on it<span class="resolve-link" onclick="resolvePost('${post.id}')">Mark resolved</span></span>`;
+    } else {
+      const label = post.type === 'request' ? 'I can help with this' : 'Claim this';
+      footer = `<button class="card-action" onclick="respondToPost('${post.id}')">${label}</button>`;
+    }
+
+    return `
+      <div class="card ${post.status==='resolved'?'resolved':''}" data-emoji="${cat.emoji}" style="--tab-color:${tabColor}">
+        <div class="card-top">
+          <span class="type-badge ${post.type}">${post.type === 'request' ? 'Need help' : 'Can help'}</span>
+          ${isUrgent ? `<span class="urgent"><span class="pulse"></span>${URGENCY_LABEL[post.urgency]}</span>` : ''}
+        </div>
+        <div class="card-title">${escapeHtml(post.title)}</div>
+        ${post.details ? `<p class="card-details">${escapeHtml(post.details)}</p>` : ''}
+        <div class="card-meta">📍 ${escapeHtml(post.locality)} · ${cat.label} · ${relativeTime(post.createdAt)}</div>
+        <div class="card-footer">
+          <span class="posted-by">— ${escapeHtml(post.postedBy)}</span>
+          ${footer}
+        </div>
+      </div>`;
+  }
+
+  function render(){
+    document.getElementById('boardTitle').textContent = state.activeTab === 'request' ? 'Open requests' : 'People offering help';
+    const filtered = state.posts.filter(p =>
+      p.type === state.activeTab &&
+      (state.activeCategory === 'all' || p.category === state.activeCategory)
+    ).sort((a,b) => {
+      if(a.status !== b.status) return a.status === 'resolved' ? 1 : -1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    document.getElementById('boardCount').textContent = filtered.length + (filtered.length===1 ? ' post' : ' posts');
+
+    const board = document.getElementById('board');
+    if(filtered.length === 0){
+      const noun = state.activeTab === 'request' ? 'requests' : 'offers';
+      board.innerHTML = `<div class="empty"><strong>Nothing here yet</strong>Be the first to post — tap "Post" to add ${state.activeTab === 'request' ? 'what you need' : 'what you can give'}.</div>`;
+    } else {
+      board.innerHTML = filtered.map(cardHtml).join('');
+    }
+
+    document.getElementById('impactCount').textContent = state.posts.filter(p => p.status === 'resolved').length;
+    renderChips();
+  }
+
+  /* ---------------- tabs / filters ---------------- */
+  function setActiveTab(tab){
+    state.activeTab = tab;
+    document.getElementById('tabRequest').classList.toggle('active', tab==='request');
+    document.getElementById('tabOffer').classList.toggle('active', tab==='offer');
+    render();
+  }
+  function setActiveCategory(cat){
+    state.activeCategory = cat;
+    render();
+  }
+
+  /* ---------------- post modal ---------------- */
+  function openPostModal(){
+    setModalType(state.activeTab);
+    document.getElementById('postForm').reset();
+    document.getElementById('formError').classList.remove('show');
+    document.getElementById('postOverlay').classList.add('open');
+  }
+  function closePostModal(){
+    document.getElementById('postOverlay').classList.remove('open');
+  }
+  function setModalType(type){
+    state.modalType = type;
+    document.getElementById('segRequest').classList.toggle('active', type==='request');
+    document.getElementById('segOffer').classList.toggle('active', type==='offer');
+    document.getElementById('modalTitle').textContent = type==='request' ? 'Post a request' : 'Post that you can help';
+    document.getElementById('urgencyField').style.display = type==='request' ? 'block' : 'none';
+    document.getElementById('submitBtn').textContent = type==='request' ? 'Post request' : 'Post offer';
+  }
+
+  async function submitPost(e){
+    e.preventDefault();
+    const title = document.getElementById('fTitle').value.trim();
+    const locality = document.getElementById('fLocality').value.trim();
+    const errEl = document.getElementById('formError');
+    if(!title || !locality){
+      errEl.textContent = 'Add a short title and an area before posting.';
+      errEl.classList.add('show');
+      return;
+    }
+    errEl.classList.remove('show');
+
+    const post = {
+      id: 'p' + Date.now() + Math.random().toString(36).slice(2,7),
+      type: state.modalType,
+      category: document.getElementById('fCategory').value,
+      title,
+      details: document.getElementById('fDetails').value.trim(),
+      urgency: document.getElementById('fUrgency').value,
+      locality,
+      contact: document.getElementById('fContact').value.trim(),
+      postedBy: state.myName || 'A neighbor',
+      status: 'open',
+      helper: null,
+      createdAt: new Date().toISOString(),
+      resolvedAt: null
+    };
+
+    const proceed = async () => {
+      state.posts = [post, ...state.posts];
+      const ok = await persistPosts(state.posts);
+      closePostModal();
+      setActiveTab(post.type);
+      if(ok) showToast('Posted to the board.');
+    };
+
+    if(!state.myName){
+      state.pendingAction = proceed;
+      closePostModal();
+      openNameModal();
+    } else {
+      await proceed();
+    }
+  }
+
+  /* ---------------- respond / resolve ---------------- */
+  async function respondToPost(id){
+    const proceed = async () => {
+      const post = state.posts.find(p => p.id === id);
+      if(!post) return;
+      post.status = 'in-progress';
+      post.helper = state.myName;
+      const ok = await persistPosts(state.posts);
+      render();
+      if(ok) showToast("You're on it — thanks for helping.");
+    };
+    if(!state.myName){
+      state.pendingAction = proceed;
+      openNameModal();
+    } else {
+      await proceed();
+    }
+  }
+
+  async function resolvePost(id){
+    const post = state.posts.find(p => p.id === id);
+    if(!post) return;
+    post.status = 'resolved';
+    post.resolvedAt = new Date().toISOString();
+    const ok = await persistPosts(state.posts);
+    render();
+    if(ok) showToast('Marked as resolved — nice work.');
+  }
+
+  /* ---------------- name capture ---------------- */
+  function openNameModal(){
+    document.getElementById('nameOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('fName').focus(), 50);
+  }
+  function closeNameModal(){
+    document.getElementById('nameOverlay').classList.remove('open');
+    state.pendingAction = null;
+  }
+  async function submitName(e){
+    e.preventDefault();
+    const name = document.getElementById('fName').value.trim();
+    if(!name) return;
+    state.myName = name;
+    await persistMyName(name);
+    document.getElementById('nameOverlay').classList.remove('open');
+    const action = state.pendingAction;
+    state.pendingAction = null;
+    if(action) await action();
+  }
+
+  /* ---------------- toast ---------------- */
+  let toastTimer;
+  function showToast(msg){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  /* ---------------- overlay dismiss ---------------- */
+  document.getElementById('postOverlay').addEventListener('click', (e) => { if(e.target.id==='postOverlay') closePostModal(); });
+  document.getElementById('nameOverlay').addEventListener('click', (e) => { if(e.target.id==='nameOverlay') closeNameModal(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ closePostModal(); closeNameModal(); } });
+
+  /* ---------------- polling ---------------- */
+  function startPolling(){
+    setInterval(async () => {
+      if(document.hidden) return;
+      try{
+        const fresh = await fetchPosts();
+        state.posts = fresh;
+        render();
+      }catch(e){}
+    }, 12000);
+  }
+
+  /* ---------------- init ---------------- */
+  async function init(){
+    state.myName = await fetchMyName();
+    state.posts = await fetchPosts();
+    render();
+    startPolling();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
